@@ -1,0 +1,12 @@
+# .air.toml
+################################################################################
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "templ generate  && go run main.go"
+bin = "./tmp/main"
+log = "build.log"
+include_ext = ["go", "templ"]
+exclude_dir = ["tmp", "vendor", "node_modules"]
