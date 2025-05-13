@@ -9,9 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"goth/internal/components"
 	"goth/internal/handlers"
-
 	"goth/internal/middleware"
+
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -21,8 +22,43 @@ func main() {
 		port = "8080"
 	}
 
+	// Initialize database connection
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+
+	dbPort := os.Getenv("DB_PORT")
+	if dbPort == "" {
+		dbPort = "5432"
+	}
+
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		dbUser = "dashboard" // From docker-compose.yml
+	}
+
+	dbPassword := os.Getenv("DB_PASSWORD")
+	if dbPassword == "" {
+		dbPassword = "changeme" // From docker-compose.yml
+	}
+
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "dashboard" // From docker-compose.yml
+	}
+
+	err := components.InitDB(dbHost, dbPort, dbUser, dbPassword, dbName)
+	if err != nil {
+		log.Printf("Warning: Failed to connect to database: %v", err)
+		// Continue execution even if database connection fails
+	} else {
+		log.Println("Successfully connected to the database")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handlers.HelloHandler)
+	mux.HandleFunc("/healthz", handlers.HealthzHandler)
 
 	stack := middleware.CreateStack(
 		middleware.LoggingMiddleware,
@@ -57,6 +93,12 @@ func main() {
 	// Create shutdown context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	// Close database connection before shutting down
+	if components.DB != nil {
+		log.Println("Closing database connection...")
+		components.DB.Close()
+	}
 
 	// Attempt graceful shutdown
 	if err := server.Shutdown(ctx); err != nil {
