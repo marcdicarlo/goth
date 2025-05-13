@@ -11,6 +11,7 @@ import (
 
 	"goth/internal/handlers"
 
+	"goth/internal/middleware"
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -21,12 +22,15 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/", handlers.HelloHandler)
+
+	stack := middleware.CreateStack(
+		middleware.LoggingMiddleware,
+	)
 
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: mux,
+		Handler: stack(mux),
 	}
 
 	// static server
